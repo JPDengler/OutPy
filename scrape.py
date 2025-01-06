@@ -2,37 +2,29 @@ import win32com.client
 import os
 import openpyxl
 from openpyxl.utils import get_column_letter
+import tkinter as tk
+from tkinter import ttk, messagebox
 
 # Path to the Excel file
 EXCEL_FILE = "Shift_Reports.xlsx"
 
-# Filters
-FILTER_KEYWORDS = ["Shift Report", "Maintenance shift report", "mech shift report"]
+# Predefined filters
+PREDEFINED_FILTERS = {
+    "Shift Report": ["Shift Report", "Maintenance shift report", "mech shift report"],
+    "Maintenance Only": ["Maintenance shift report"],
+    "Custom Filter": []  # To be customized by the user
+}
 
 # Lines to remove
-LINES_TO_REMOVE = [
-    "*",
-    "<",
-    "Confidentiality Warning",
-    "AUTOMATION TECHNICIAN",
-    "Joseph Dengler",
-]
-
-# Keywords indicating irrelevant sections to remove
-SECTION_KEYWORDS = ["Sent:", "Subject:", "From:", "To:", "Date:", "SHIFT REPORT"]
+LINES_TO_REMOVE = ["*", "<", "Confidentiality Warning", "AUTOMATION TECHNCIAN", "Joseph Dengler"]
 
 def clean_body(body):
-    """Clean the email body by removing unwanted lines and irrelevant sections."""
+    """Clean the email body by removing unwanted lines."""
     lines = body.splitlines()
-    cleaned_lines = []
-    for line in lines:
-        stripped_line = line.strip()
-        # Skip lines that contain unwanted keywords or start with unwanted patterns
-        if not stripped_line or any(
-            keyword in stripped_line for keyword in LINES_TO_REMOVE + SECTION_KEYWORDS
-        ):
-            continue
-        cleaned_lines.append(stripped_line)
+    cleaned_lines = [
+        line.strip() for line in lines 
+        if line.strip() and not any(remove in line for remove in LINES_TO_REMOVE)
+    ]
     return "\n".join(cleaned_lines)
 
 def adjust_excel_formatting(sheet):
@@ -54,7 +46,7 @@ def adjust_excel_formatting(sheet):
         for col_index, value in enumerate(row, start=1):
             sheet.cell(row=row_index, column=col_index, value=value)
 
-def scrape_outlook():
+def scrape_outlook(filter_keywords):
     try:
         # Connect to Outlook
         print("Connecting to Outlook...")
@@ -66,6 +58,9 @@ def scrape_outlook():
 
         print(f"Accessed folder: {inbox.Name}")
         messages = inbox.Items
+
+        # Remove the date restriction to process all emails
+        print("Fetching all emails...")
 
         # Load or create the Excel workbook
         if os.path.exists(EXCEL_FILE):
@@ -94,7 +89,7 @@ def scrape_outlook():
                 body = clean_body(message.Body)  # Clean the body of the email
 
                 # Filter emails by keywords
-                if not any(keyword.lower() in subject.lower() for keyword in FILTER_KEYWORDS):
+                if not any(keyword.lower() in subject.lower() for keyword in filter_keywords):
                     continue
 
                 # Skip duplicates
@@ -119,5 +114,42 @@ def scrape_outlook():
     except Exception as e:
         print(f"Error accessing Outlook: {e}")
 
+def run_gui():
+    """Run the GUI for filter selection."""
+    def start_script():
+        selected_filter = filter_var.get()
+        if selected_filter == "Custom Filter":
+            custom_filter = custom_filter_entry.get()
+            if not custom_filter:
+                messagebox.showerror("Error", "Please enter custom filter keywords.")
+                return
+            filter_keywords = [keyword.strip() for keyword in custom_filter.split(",")]
+        else:
+            filter_keywords = PREDEFINED_FILTERS[selected_filter]
+
+        # Run the main script with the selected filters
+        scrape_outlook(filter_keywords)
+
+    # Initialize GUI window
+    root = tk.Tk()
+    root.title("Shift Reports Filter Selection")
+
+    # Dropdown for filter selection
+    tk.Label(root, text="Select Filter:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
+    filter_var = tk.StringVar(value=list(PREDEFINED_FILTERS.keys())[0])
+    filter_dropdown = ttk.Combobox(root, textvariable=filter_var, values=list(PREDEFINED_FILTERS.keys()))
+    filter_dropdown.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+
+    # Custom filter entry
+    tk.Label(root, text="Custom Filter Keywords (comma-separated):").grid(row=1, column=0, padx=10, pady=10, sticky="w")
+    custom_filter_entry = tk.Entry(root, width=40)
+    custom_filter_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+
+    # Start button
+    start_button = tk.Button(root, text="Run Script", command=start_script)
+    start_button.grid(row=2, column=0, columnspan=2, pady=10)
+
+    root.mainloop()
+
 if __name__ == "__main__":
-    scrape_outlook()
+    run_gui()
