@@ -1,6 +1,7 @@
 # OutPy
 --------
-`Python Scraper for Outlook (OUTLOOK 2016) / v1: Shift Reports Automation Script`
+`Python Scraper for Outlook (OUTLOOK 2016) / v2: Shift Reports Automation Script`
+Version 2 is activley worked on and currently has a TK window for filtering options as opposed to the script automatically running. WORK IN PROGRESS.
 
 Overview
 --------
